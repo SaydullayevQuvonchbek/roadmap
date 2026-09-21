@@ -9,10 +9,18 @@ function save(push = true) {
   if (push) pushToServer();
 }
 
-// ---- Server bilan sinxronlash (api/progress.php, kalit bilan) ----
-const SYNC_URL = "api/progress.php";
-let syncKey = ""; try { syncKey = localStorage.getItem("gswe_sync_key") || ""; } catch (e) {}
-let syncTimer = null;
+// ---- Hisob va server sinxronlash (api/index.php: register / login / progress) ----
+const API = "api/index.php";
+let me = null, syncTimer = null;
+async function api(a, method = "GET", data) {
+  const r = await fetch(`${API}?a=${a}`, {
+    method, credentials: "same-origin", cache: "no-store",
+    headers: Object.assign({ "X-Requested-With": "fetch" }, data ? { "Content-Type": "application/json" } : {}),
+    body: data ? JSON.stringify(data) : undefined
+  });
+  let j = null; try { j = await r.json(); } catch (e) {}
+  return { ok: r.ok, status: r.status, j: j || {} };
+}
 function setSyncStatus(txt, cls) {
   document.querySelectorAll("[data-sync-status]").forEach(el => { el.textContent = txt; el.className = "sync-status " + (cls || ""); });
 }
@@ -30,44 +38,52 @@ function mergeState(remote) {
   state.days = days;
 }
 async function pullFromServer() {
-  if (!syncKey) { setSyncStatus("o'chiq", ""); return; }
-  setSyncStatus("ulanmoqda…", "");
-  try {
-    const r = await fetch(SYNC_URL, { headers: { "X-Key": syncKey }, cache: "no-store" });
-    if (r.status === 401) { setSyncStatus("kalit noto'g'ri", "bad"); return; }
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const remote = await r.json();
-    if (remote && typeof remote === "object" && (remote.p || remote.s || remote.days)) { mergeState(remote); save(false); renderAll(); }
-    setSyncStatus("ulangan", "ok");
-    pushToServer();
-  } catch (e) { setSyncStatus("server javob bermadi", "bad"); }
+  if (!me) return;
+  setSyncStatus("yuklanmoqda…", "");
+  const r = await api("progress");
+  if (r.status === 401) { me = null; renderAuth(); return; }
+  if (!r.ok) { setSyncStatus("server javob bermadi", "bad"); return; }
+  if (r.j && (r.j.p || r.j.s || r.j.days)) { mergeState(r.j); save(false); renderAll(); }
+  setSyncStatus("ulangan", "ok");
+  pushToServer();
 }
 function pushToServer() {
-  if (!syncKey) return;
+  if (!me) return;
   clearTimeout(syncTimer);
   syncTimer = setTimeout(async () => {
-    try {
-      const body = JSON.stringify({ p: state.p, s: state.s, days: state.days || {}, updatedAt: Date.now() });
-      const r = await fetch(SYNC_URL, { method: "POST", headers: { "X-Key": syncKey, "Content-Type": "application/json" }, body });
-      if (r.status === 401) { setSyncStatus("kalit noto'g'ri", "bad"); return; }
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      setSyncStatus("saqlandi " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }), "ok");
-    } catch (e) { setSyncStatus("saqlanmadi — offline?", "bad"); }
+    const r = await api("progress", "POST", { p: state.p, s: state.s, days: state.days || {}, updatedAt: Date.now() });
+    if (r.status === 401) { me = null; renderAuth(); return; }
+    setSyncStatus(r.ok ? "saqlandi " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "saqlanmadi — " + (r.j.error || "offline?"), r.ok ? "ok" : "bad");
   }, 600);
 }
-function initSync() {
-  document.querySelectorAll("[data-sync-form]").forEach(f => {
-    const inp = f.querySelector("input");
-    if (syncKey) inp.value = syncKey;
-    f.addEventListener("submit", e => {
-      e.preventDefault();
-      syncKey = inp.value.trim();
-      try { if (syncKey) localStorage.setItem("gswe_sync_key", syncKey); else localStorage.removeItem("gswe_sync_key"); } catch (err) {}
-      document.querySelectorAll("[data-sync-form] input").forEach(i => { i.value = syncKey; });
-      if (syncKey) pullFromServer(); else setSyncStatus("o'chiq", "");
-    });
+function renderAuth() {
+  document.querySelectorAll("[data-auth]").forEach(box => {
+    if (me) {
+      box.innerHTML = `<div class="auth-row"><span class="auth-user">@${esc(me)}</span><span class="sync-status" data-sync-status></span><button class="btn small" type="button" data-logout>Chiqish</button></div>`;
+      box.querySelector("[data-logout]").addEventListener("click", async () => { await api("logout", "POST", {}); me = null; renderAuth(); toast("Chiqdingiz — progress shu brauzerda qoladi"); });
+    } else {
+      box.innerHTML = `<form class="auth-form" autocomplete="on">
+        <input name="username" placeholder="login" autocomplete="username" aria-label="Login" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+">
+        <input name="password" type="password" placeholder="parol" autocomplete="current-password" aria-label="Parol" required minlength="6">
+        <div class="auth-btns"><button class="btn small primary" type="submit" data-act="login">Kirish</button><button class="btn small" type="submit" data-act="register">Ro'yxatdan o'tish</button></div>
+        <div class="auth-msg" data-auth-msg></div></form>`;
+      const f = box.querySelector("form"), msg = box.querySelector("[data-auth-msg]");
+      let act = "login";
+      f.querySelectorAll("button[data-act]").forEach(b => b.addEventListener("click", () => { act = b.dataset.act; }));
+      f.addEventListener("submit", async e => {
+        e.preventDefault(); msg.textContent = "…";
+        const r = await api(act, "POST", { username: f.username.value.trim(), password: f.password.value });
+        if (r.ok) { me = r.j.username; renderAuth(); toast(act === "register" ? "Hisob yaratildi — progress serverda saqlanadi" : "Xush kelibsiz, @" + me); pullFromServer(); }
+        else msg.textContent = r.j.error || ("Xato " + r.status);
+      });
+    }
   });
-  if (syncKey) pullFromServer(); else setSyncStatus("o'chiq", "");
+  if (!me) setSyncStatus("", "");
+}
+async function initAuth() {
+  renderAuth();
+  const r = await api("me");
+  if (r.ok && r.j.username) { me = r.j.username; renderAuth(); pullFromServer(); }
 }
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -369,4 +385,4 @@ function initNav() {
 function renderAll() {
   renderTimeline(); renderSkills(); renderProblems(); updateStats(); renderToday();
 }
-load(); applyTheme(); initFilters(); renderTemplates(); renderAll(); initNav(); initSync();
+load(); applyTheme(); initFilters(); renderTemplates(); renderAll(); initNav(); initAuth();
