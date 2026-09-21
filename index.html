@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=956408">
+<link rel="stylesheet" href="assets/style.css?v=957534">
 </head>
 <body>
 <div class="shell">
@@ -33,6 +33,13 @@
       <div class="lbl"><span>Ko'nikmalar</span><b data-side-skills>0 / 0</b></div>
       <div class="meter ok"><i data-side-skills-meter></i></div>
     </div>
+      <div class="sync">
+        <div class="lbl"><span>Sinxronlash</span><b class="sync-status" data-sync-status>o'chiq</b></div>
+        <form class="sync-form" data-sync-form autocomplete="off">
+          <input type="password" name="key" placeholder="Kalit" aria-label="Sinxronlash kaliti">
+          <button class="btn small" type="submit">Ulash</button>
+        </form>
+      </div>
     <div class="side-bottom">
       <button class="btn small" type="button" data-theme-toggle>Mavzu: tizim</button>
       <button class="btn small" type="button" data-export>Progressni yuklab olish</button>
@@ -272,13 +279,18 @@
       </section>
 
       <footer>
+        <form class="sync-form" data-sync-form autocomplete="off" style="width:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span>Sinxronlash: <b class="sync-status" data-sync-status>o'chiq</b></span>
+          <input type="password" name="key" placeholder="Kalit" aria-label="Sinxronlash kaliti" style="font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);min-width:140px">
+          <button class="btn small" type="submit">Ulash</button>
+        </form>
         <span style="display:flex;gap:8px;flex-wrap:wrap;width:100%">
           <button class="btn small" type="button" data-export>Progressni yuklab olish</button>
           <button class="btn small" type="button" data-import>Progressni yuklash</button>
           <button class="btn small" type="button" data-reset>Tozalash</button>
         </span>
         <span>Quvonchbek Saydullayev · saydullayevapi.uz</span>
-        <span>Progress faqat shu brauzerda saqlanadi — vaqti-vaqti bilan "Progressni yuklab olish" bilan zaxira qiling.</span>
+        <span>Kalit bilan ulansangiz progress serverda saqlanadi va barcha qurilmalarda bir xil bo'ladi; kalitsiz — faqat shu brauzerda.</span>
       </footer>
     </main>
   </div>
@@ -286,8 +298,8 @@
 <div class="toast" data-toast></div>
 <input type="file" accept="application/json" data-import-input hidden>
 
-<script src="assets/data.js?v=956408"></script>
-<script src="assets/app.js?v=956408"></script>
-<script type="module" src="assets/scene.js?v=956408"></script>
+<script src="assets/data.js?v=957534"></script>
+<script src="assets/app.js?v=957534"></script>
+<script type="module" src="assets/scene.js?v=957534"></script>
 </body>
 </html>

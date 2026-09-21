@@ -4,8 +4,70 @@ let state = { p: {}, s: {}, theme: "system" };
 function load() {
   try { const raw = localStorage.getItem(KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch (e) {}
 }
-function save() {
+function save(push = true) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  if (push) pushToServer();
+}
+
+// ---- Server bilan sinxronlash (api/progress.php, kalit bilan) ----
+const SYNC_URL = "api/progress.php";
+let syncKey = ""; try { syncKey = localStorage.getItem("gswe_sync_key") || ""; } catch (e) {}
+let syncTimer = null;
+function setSyncStatus(txt, cls) {
+  document.querySelectorAll("[data-sync-status]").forEach(el => { el.textContent = txt; el.className = "sync-status " + (cls || ""); });
+}
+function mergeState(remote) {
+  const p = Object.assign({}, state.p);
+  for (const [id, r] of Object.entries(remote.p || {})) {
+    const rr = typeof r === "string" ? { s: r, t: 0 } : r;
+    const l = state.p[id]; const lt = l ? (typeof l === "string" ? 0 : (l.t || 0)) : -1;
+    if ((rr.t || 0) >= lt) p[id] = rr;
+  }
+  state.p = p;
+  state.s = Object.assign({}, remote.s || {}, state.s);
+  const days = Object.assign({}, remote.days || {});
+  for (const [d, n] of Object.entries(state.days || {})) days[d] = Math.max(days[d] || 0, n);
+  state.days = days;
+}
+async function pullFromServer() {
+  if (!syncKey) { setSyncStatus("o'chiq", ""); return; }
+  setSyncStatus("ulanmoqda…", "");
+  try {
+    const r = await fetch(SYNC_URL, { headers: { "X-Key": syncKey }, cache: "no-store" });
+    if (r.status === 401) { setSyncStatus("kalit noto'g'ri", "bad"); return; }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const remote = await r.json();
+    if (remote && typeof remote === "object" && (remote.p || remote.s || remote.days)) { mergeState(remote); save(false); renderAll(); }
+    setSyncStatus("ulangan", "ok");
+    pushToServer();
+  } catch (e) { setSyncStatus("server javob bermadi", "bad"); }
+}
+function pushToServer() {
+  if (!syncKey) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      const body = JSON.stringify({ p: state.p, s: state.s, days: state.days || {}, updatedAt: Date.now() });
+      const r = await fetch(SYNC_URL, { method: "POST", headers: { "X-Key": syncKey, "Content-Type": "application/json" }, body });
+      if (r.status === 401) { setSyncStatus("kalit noto'g'ri", "bad"); return; }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      setSyncStatus("saqlandi " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }), "ok");
+    } catch (e) { setSyncStatus("saqlanmadi — offline?", "bad"); }
+  }, 600);
+}
+function initSync() {
+  document.querySelectorAll("[data-sync-form]").forEach(f => {
+    const inp = f.querySelector("input");
+    if (syncKey) inp.value = syncKey;
+    f.addEventListener("submit", e => {
+      e.preventDefault();
+      syncKey = inp.value.trim();
+      try { if (syncKey) localStorage.setItem("gswe_sync_key", syncKey); else localStorage.removeItem("gswe_sync_key"); } catch (err) {}
+      document.querySelectorAll("[data-sync-form] input").forEach(i => { i.value = syncKey; });
+      if (syncKey) pullFromServer(); else setSyncStatus("o'chiq", "");
+    });
+  });
+  if (syncKey) pullFromServer(); else setSyncStatus("o'chiq", "");
 }
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -47,7 +109,7 @@ function applyTheme() {
 }
 $$("[data-theme-toggle]").forEach(b => b.addEventListener("click", () => {
   state.theme = state.theme === "system" ? "light" : state.theme === "light" ? "dark" : "system";
-  save(); applyTheme();
+  save(false); applyTheme();
 }));
 
 // ---- Toast ----
@@ -307,4 +369,4 @@ function initNav() {
 function renderAll() {
   renderTimeline(); renderSkills(); renderProblems(); updateStats(); renderToday();
 }
-load(); applyTheme(); initFilters(); renderTemplates(); renderAll(); initNav();
+load(); applyTheme(); initFilters(); renderTemplates(); renderAll(); initNav(); initSync();
