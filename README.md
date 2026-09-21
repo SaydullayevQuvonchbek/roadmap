@@ -1,19 +1,21 @@
-# Google SWE yo'l xaritasi — roadmap.saydullayevapi.uz
+# Middle → Google — roadmap.saydullayevapi.uz
 
-Bitta fayl: `index.html` (backend yo'q, progress brauzerda saqlanadi).
+Statik sayt: `index.html` + `assets/` (CSS, JS, 3D sahna uchun three.js). Backend yo'q, progress brauzerda saqlanadi.
 
-## Variant 1 — GitHub Pages (tavsiya: server kerak emas, HTTPS avtomatik)
+## Yangilash (Hestia droplet)
 
-1. Repo → **Settings → Pages** → *Source: Deploy from a branch* → `main` / `/ (root)` → Save.
-2. Shu sahifada **Custom domain**: `roadmap.saydullayevapi.uz` → Save (`CNAME` fayli allaqachon repoda).
-3. DigitalOcean → Networking → Domains → saydullayevapi.uz → Create a record:
-   **CNAME**, hostname `roadmap`, alias `saydullayevquvonchbek.github.io` (oxirida nuqta bo'lsa ham bo'ladi).
-4. 5–20 daqiqadan keyin Pages sahifasida **Enforce HTTPS** ni yoqing.
+1. Fayllarni repoga yuklang (commit).
+2. Droplet konsolida:
+   ```
+   bash /var/www/roadmap/update.sh
+   ```
+   (birinchi marta: `curl -fsSL https://raw.githubusercontent.com/SaydullayevQuvonchbek/roadmap/main/update.sh -o /var/www/roadmap/update.sh && bash /var/www/roadmap/update.sh`)
 
-Yangilash: `index.html` ni repoda almashtirasiz — 1–2 daqiqada sayt yangilanadi.
+## Tuzilma
 
-## Variant 2 — DigitalOcean droplet (nginx)
-
-DNS: **A** yozuv, hostname `roadmap` → `164.90.217.190`.
-Droplet konsolida `deploy-from-github.sh` ichidagi `RAW_URL` ni o'z repongizga moslab, faylni paste qiling.
-Yangilash: konsolda `bash /var/www/roadmap/update.sh`.
+- `index.html` — sahifa
+- `assets/style.css` — uslub (yorug'/qorong'i mavzu)
+- `assets/data.js` — haftalar, 196 + 12 masala, ko'nikmalar, C++ shablonlar
+- `assets/app.js` — progress, takrorlash tizimi, reyting, filtrlar
+- `assets/scene.js` — 3D yo'l (three.js), progress bilan bog'langan
+- `assets/vendor/three.module.min.js` — three.js r170 (MIT)
